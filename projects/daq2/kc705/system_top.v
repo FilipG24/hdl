@@ -100,30 +100,17 @@ module system_top (
   input       [ 3:0]      rx_data_p,
   input       [ 3:0]      rx_data_n,
 
-  input                   tx_ref_clk_p,
-  input                   tx_ref_clk_n,
-  input                   tx_sysref_p,
-  input                   tx_sysref_n,
-  input                   tx_sync_p,
-  input                   tx_sync_n,
-  output      [ 3:0]      tx_data_p,
-  output      [ 3:0]      tx_data_n,
-
   input                   trig_p,
   input                   trig_n,
 
   inout                   adc_fdb,
   inout                   adc_fda,
-  inout                   dac_irq,
   inout       [ 1:0]      clkd_status,
 
   inout                   adc_pd,
-  inout                   dac_txen,
-  inout                   dac_reset,
   inout                   clkd_sync,
 
   output                  spi_csn_clk,
-  output                  spi_csn_dac,
   output                  spi_csn_adc,
   output                  spi_clk,
   inout                   spi_sdio,
@@ -148,7 +135,6 @@ module system_top (
   // spi
 
   assign spi_csn_adc = spi_csn[2];
-  assign spi_csn_dac = spi_csn[1];
   assign spi_csn_clk = spi_csn[0];
 
   // default logic
@@ -177,23 +163,6 @@ module system_top (
     .O (rx_sync_p),
     .OB (rx_sync_n));
 
-  IBUFDS_GTE2 i_ibufds_tx_ref_clk (
-    .CEB (1'd0),
-    .I (tx_ref_clk_p),
-    .IB (tx_ref_clk_n),
-    .O (tx_ref_clk),
-    .ODIV2 ());
-
-  IBUFDS i_ibufds_tx_sysref (
-    .I (tx_sysref_p),
-    .IB (tx_sysref_n),
-    .O (tx_sysref));
-
-  IBUFDS i_ibufds_tx_sync (
-    .I (tx_sync_p),
-    .IB (tx_sync_n),
-    .O (tx_sync));
-
   daq2_spi i_spi (
     .spi_csn (spi_csn[2:0]),
     .spi_clk (spi_clk),
@@ -209,17 +178,14 @@ module system_top (
 
   assign gpio_i[43] = trig;
 
-  ad_iobuf #(.DATA_WIDTH(9)) i_iobuf (
-    .dio_t ({gpio_t[42:40], gpio_t[38], gpio_t[36:32]}),
-    .dio_i ({gpio_o[42:40], gpio_o[38], gpio_o[36:32]}),
-    .dio_o ({gpio_i[42:40], gpio_i[38], gpio_i[36:32]}),
+  ad_iobuf #(.DATA_WIDTH(6)) i_iobuf (
+    .dio_t ({gpio_t[42], gpio_t[38], gpio_t[36:35], gpio_t[33:32]}),
+    .dio_i ({gpio_o[42], gpio_o[38], gpio_o[36:35], gpio_o[33:32]}),
+    .dio_o ({gpio_i[42], gpio_i[38], gpio_i[36:35], gpio_i[33:32]}),
     .dio_p ({ adc_pd,           // 42
-              dac_txen,         // 41
-              dac_reset,        // 40
               clkd_sync,        // 38
               adc_fdb,          // 36
               adc_fda,          // 35
-              dac_irq,          // 34
               clkd_status}));   // 33-32
 
   ad_iobuf #(.DATA_WIDTH(17)) i_iobuf_bd (
@@ -229,8 +195,10 @@ module system_top (
     .dio_p (gpio_bd));
 
   assign gpio_i[63:44] = gpio_o[63:44];
+  assign gpio_i[41:40] = gpio_o[41:40];
   assign gpio_i[39] = gpio_o[39];
   assign gpio_i[37] = gpio_o[37];
+  assign gpio_i[34] = gpio_o[34];
   assign gpio_i[31:17] = gpio_o[31:17];
 
   system_wrapper i_system_wrapper (
@@ -297,17 +265,6 @@ module system_top (
     .sys_clk_n (sys_clk_n),
     .sys_clk_p (sys_clk_p),
     .sys_rst (sys_rst),
-    .tx_data_0_n (tx_data_n[0]),
-    .tx_data_0_p (tx_data_p[0]),
-    .tx_data_1_n (tx_data_n[1]),
-    .tx_data_1_p (tx_data_p[1]),
-    .tx_data_2_n (tx_data_n[2]),
-    .tx_data_2_p (tx_data_p[2]),
-    .tx_data_3_n (tx_data_n[3]),
-    .tx_data_3_p (tx_data_p[3]),
-    .tx_ref_clk_0 (tx_ref_clk),
-    .tx_sync_0 (tx_sync),
-    .tx_sysref_0 (tx_sysref),
     .uart_sin (uart_sin),
     .uart_sout (uart_sout));
 
