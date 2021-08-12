@@ -1,25 +1,31 @@
 
 source $ad_hdl_dir/library/jesd204/scripts/jesd204.tcl
 
-set RX_NUM_OF_LANES 4           ; # L
-set RX_NUM_OF_CONVERTERS 2      ; # M
+set RX_NUM_OF_LANES 2           ; # L
+set RX_NUM_OF_CONVERTERS 8      ; # M
 set RX_SAMPLES_PER_FRAME 1      ; # S
 set RX_SAMPLE_WIDTH 16          ; # N/NP
 
-set RX_SAMPLES_PER_CHANNEL [expr $RX_NUM_OF_LANES * 32 / ($RX_NUM_OF_CONVERTERS * $RX_SAMPLE_WIDTH)]
+set RX_SAMPLES_PER_CHANNEL [expr $RX_NUM_OF_LANES * 64 / ($RX_NUM_OF_CONVERTERS * $RX_SAMPLE_WIDTH)]
 
 set adc_fifo_name axi_ad9680_fifo
 set adc_data_width [expr $RX_SAMPLE_WIDTH * $RX_NUM_OF_CONVERTERS * $RX_SAMPLES_PER_CHANNEL]
 set adc_dma_data_width 64
 
+create_bd_port -dir I ad9680_device_clk
+
 # adc peripherals
 
 ad_ip_instance axi_adxcvr axi_ad9680_xcvr
 ad_ip_parameter axi_ad9680_xcvr CONFIG.NUM_OF_LANES $RX_NUM_OF_LANES
-ad_ip_parameter axi_ad9680_xcvr CONFIG.QPLL_ENABLE 0
+ad_ip_parameter axi_ad9680_xcvr CONFIG.QPLL_ENABLE 1
 ad_ip_parameter axi_ad9680_xcvr CONFIG.TX_OR_RX_N 0
+ad_ip_parameter axi_ad9680_xcvr CONFIG.OUT_CLK_SEL 3
+ad_ip_parameter axi_ad9680_xcvr CONFIG.SYS_CLK_SEL 0
 
 adi_axi_jesd204_rx_create axi_ad9680_jesd $RX_NUM_OF_LANES
+ad_ip_parameter axi_ad9680_jesd/rx CONFIG.DATA_PATH_WIDTH 4
+ad_ip_parameter axi_ad9680_jesd/rx CONFIG.TPL_DATA_PATH_WIDTH 8
 
 
 adi_tpl_jesd204_rx_create axi_ad9680_tpl $RX_NUM_OF_LANES \
@@ -55,6 +61,8 @@ ad_ip_parameter util_daq2_xcvr CONFIG.RX_NUM_OF_LANES $RX_NUM_OF_LANES
 ad_ip_parameter util_daq2_xcvr CONFIG.RX_OUT_DIV 1
 ad_ip_parameter util_daq2_xcvr CONFIG.RX_DFE_LPM_CFG 0x0104
 ad_ip_parameter util_daq2_xcvr CONFIG.RX_CDR_CFG 0x0B000023FF10400020
+ad_ip_parameter util_daq2_xcvr CONFIG.CPLL_FBDIV 5
+ad_ip_parameter util_daq2_xcvr CONFIG.CPLL_FBDIV_4_5 4
 
 ad_connect  $sys_cpu_resetn util_daq2_xcvr/up_rstn
 ad_connect  $sys_cpu_clk util_daq2_xcvr/up_clk
@@ -68,14 +76,15 @@ ad_xcvrpll  axi_ad9680_xcvr/up_pll_rst util_daq2_xcvr/up_cpll_rst_*
 
 # connections (adc)
 
-ad_xcvrcon  util_daq2_xcvr axi_ad9680_xcvr axi_ad9680_jesd
-ad_connect  util_daq2_xcvr/rx_out_clk_0 axi_ad9680_tpl/link_clk
+ad_connect  ad9680_link_clk util_daq2_xcvr/rx_out_clk_0
+
+ad_xcvrcon  util_daq2_xcvr axi_ad9680_xcvr axi_ad9680_jesd {} ad9680_link_clk ad9680_device_clk
 ad_connect  axi_ad9680_jesd/rx_sof axi_ad9680_tpl/link_sof
 ad_connect  axi_ad9680_jesd/rx_data_tdata axi_ad9680_tpl/link_data
 ad_connect  axi_ad9680_jesd/rx_data_tvalid axi_ad9680_tpl/link_valid
 
-ad_connect  util_daq2_xcvr/rx_out_clk_0 axi_ad9680_cpack/clk
-ad_connect  axi_ad9680_jesd_rstgen/peripheral_reset axi_ad9680_cpack/reset
+ad_connect  ad9680_device_clk axi_ad9680_cpack/clk
+ad_connect  ad9680_device_clk_rstgen/peripheral_reset axi_ad9680_cpack/reset
 
 ad_connect  axi_ad9680_tpl/adc_valid_0 axi_ad9680_cpack/fifo_wr_en
 for {set i 0} {$i < $RX_NUM_OF_CONVERTERS} {incr i} {
@@ -83,9 +92,10 @@ for {set i 0} {$i < $RX_NUM_OF_CONVERTERS} {incr i} {
   ad_connect  axi_ad9680_tpl/adc_data_$i axi_ad9680_cpack/fifo_wr_data_$i
 }
 ad_connect  axi_ad9680_tpl/adc_dovf axi_ad9680_cpack/fifo_wr_overflow
+ad_connect  ad9680_device_clk axi_ad9680_tpl/link_clk
 
-ad_connect  util_daq2_xcvr/rx_out_clk_0 axi_ad9680_fifo/adc_clk
-ad_connect  axi_ad9680_jesd_rstgen/peripheral_reset axi_ad9680_fifo/adc_rst
+ad_connect  ad9680_device_clk axi_ad9680_fifo/adc_clk
+ad_connect  ad9680_device_clk_rstgen/peripheral_reset axi_ad9680_fifo/adc_rst
 
 ad_connect  axi_ad9680_cpack/packed_fifo_wr_en axi_ad9680_fifo/adc_wr
 ad_connect  axi_ad9680_cpack/packed_fifo_wr_data axi_ad9680_fifo/adc_wdata

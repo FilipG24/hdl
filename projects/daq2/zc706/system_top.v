@@ -99,33 +99,23 @@ module system_top (
   input                   rx_sysref_n,
   output                  rx_sync_p,
   output                  rx_sync_n,
-  input       [ 3:0]      rx_data_p,
-  input       [ 3:0]      rx_data_n,
+  input       [ 1:0]      rx_data_p,
+  input       [ 1:0]      rx_data_n,
 
   input                   tx_ref_clk_p,
   input                   tx_ref_clk_n,
-  input                   tx_sysref_p,
-  input                   tx_sysref_n,
-  input                   tx_sync_p,
-  input                   tx_sync_n,
-  output      [ 3:0]      tx_data_p,
-  output      [ 3:0]      tx_data_n,
 
   input                   trig_p,
   input                   trig_n,
 
   inout                   adc_fdb,
   inout                   adc_fda,
-  inout                   dac_irq,
   inout       [ 1:0]      clkd_status,
 
   inout                   adc_pd,
-  inout                   dac_txen,
-  inout                   dac_reset,
   inout                   clkd_sync,
 
   output                  spi_csn_clk,
-  output                  spi_csn_dac,
   output                  spi_csn_adc,
   output                  spi_clk,
   inout                   spi_sdio,
@@ -146,16 +136,14 @@ module system_top (
   wire            spi1_miso;
   wire            trig;
   wire            rx_ref_clk;
+  wire            device_clk;
+  wire            ad9680_device_clk;
   wire            rx_sysref;
   wire            rx_sync;
-  wire            tx_ref_clk;
-  wire            tx_sysref;
-  wire            tx_sync;
 
   // spi
 
   assign spi_csn_adc = spi0_csn[2];
-  assign spi_csn_dac = spi0_csn[1];
   assign spi_csn_clk = spi0_csn[0];
 
   // instantiations
@@ -181,18 +169,12 @@ module system_top (
     .CEB (1'd0),
     .I (tx_ref_clk_p),
     .IB (tx_ref_clk_n),
-    .O (tx_ref_clk),
+    .O (device_clk),
     .ODIV2 ());
 
-  IBUFDS i_ibufds_tx_sysref (
-    .I (tx_sysref_p),
-    .IB (tx_sysref_n),
-    .O (tx_sysref));
-
-  IBUFDS i_ibufds_tx_sync (
-    .I (tx_sync_p),
-    .IB (tx_sync_n),
-    .O (tx_sync));
+  BUFG bufg_device_clk (
+    .I (device_clk),
+    .O (ad9680_device_clk));
 
   daq2_spi i_spi (
     .spi_csn (spi0_csn),
@@ -210,17 +192,14 @@ module system_top (
   assign gpio_i[43] = trig;
   assign spi_clk = spi0_clk;
 
-  ad_iobuf #(.DATA_WIDTH(9)) i_iobuf (
-    .dio_t ({gpio_t[42:40], gpio_t[38], gpio_t[36:32]}),
-    .dio_i ({gpio_o[42:40], gpio_o[38], gpio_o[36:32]}),
-    .dio_o ({gpio_i[42:40], gpio_i[38], gpio_i[36:32]}),
+  ad_iobuf #(.DATA_WIDTH(6)) i_iobuf (
+    .dio_t ({gpio_t[42], gpio_t[38], gpio_t[36:35], gpio_t[33:32]}),
+    .dio_i ({gpio_o[42], gpio_o[38], gpio_o[36:35], gpio_o[33:32]}),
+    .dio_o ({gpio_i[42], gpio_i[38], gpio_i[36:35], gpio_i[33:32]}),
     .dio_p ({ adc_pd,           // 42
-              dac_txen,         // 41
-              dac_reset,        // 40
               clkd_sync,        // 38
               adc_fdb,          // 36
               adc_fda,          // 35
-              dac_irq,          // 34
               clkd_status}));   // 33-32
 
   ad_iobuf #(.DATA_WIDTH(15)) i_iobuf_bd (
@@ -230,8 +209,10 @@ module system_top (
     .dio_p (gpio_bd));
 
   assign gpio_i[63:44] = gpio_o[63:44];
+  assign gpio_i[41:40] = gpio_o[41:40];
   assign gpio_i[39] = gpio_o[39];
   assign gpio_i[37] = gpio_o[37];
+  assign gpio_i[34] = gpio_o[34];
   assign gpio_i[31:15] = gpio_o[31:15];
 
   system_wrapper i_system_wrapper (
@@ -285,11 +266,8 @@ module system_top (
     .rx_data_0_p (rx_data_p[0]),
     .rx_data_1_n (rx_data_n[1]),
     .rx_data_1_p (rx_data_p[1]),
-    .rx_data_2_n (rx_data_n[2]),
-    .rx_data_2_p (rx_data_p[2]),
-    .rx_data_3_n (rx_data_n[3]),
-    .rx_data_3_p (rx_data_p[3]),
     .rx_ref_clk_0 (rx_ref_clk),
+    .ad9680_device_clk (ad9680_device_clk),
     .rx_sync_0 (rx_sync),
     .rx_sysref_0 (rx_sysref),
     .spdif (spdif),
@@ -313,18 +291,7 @@ module system_top (
     .spi1_sdo_o (spi1_mosi),
     .sys_clk_clk_n (sys_clk_n),
     .sys_clk_clk_p (sys_clk_p),
-    .sys_rst (sys_rst),
-    .tx_data_0_n (tx_data_n[0]),
-    .tx_data_0_p (tx_data_p[0]),
-    .tx_data_1_n (tx_data_n[1]),
-    .tx_data_1_p (tx_data_p[1]),
-    .tx_data_2_n (tx_data_n[2]),
-    .tx_data_2_p (tx_data_p[2]),
-    .tx_data_3_n (tx_data_n[3]),
-    .tx_data_3_p (tx_data_p[3]),
-    .tx_ref_clk_0 (tx_ref_clk),
-    .tx_sync_0 (tx_sync),
-    .tx_sysref_0 (tx_sysref));
+    .sys_rst (sys_rst));
 
 endmodule
 
