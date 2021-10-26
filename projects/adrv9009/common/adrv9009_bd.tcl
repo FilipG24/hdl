@@ -1,8 +1,8 @@
 
 # TX parameters
 set TX_NUM_OF_LANES 4      ; # L
-set TX_NUM_OF_CONVERTERS 4 ; # M
-set TX_SAMPLES_PER_FRAME 1 ; # S
+set TX_NUM_OF_CONVERTERS 2 ; # M
+set TX_SAMPLES_PER_FRAME 2 ; # S
 set TX_SAMPLE_WIDTH 16     ; # N/NP
 
 set TX_SAMPLES_PER_CHANNEL [expr $TX_NUM_OF_LANES * 32 / \
@@ -63,7 +63,7 @@ ad_ip_instance util_upack2 util_adrv9009_tx_upack [list \
   SAMPLE_DATA_WIDTH $TX_SAMPLE_WIDTH \
 ]
 
-ad_add_interpolation_filter "tx_fir_interpolator" 8 $TX_NUM_OF_CONVERTERS 2 {122.88} {15.36} \
+ad_add_interpolation_filter "tx_fir_interpolator" 8 $TX_NUM_OF_CONVERTERS 4 {122.88} {15.36} \
                              "$ad_hdl_dir/library/util_fir_int/coefile_int.coe"
 
 
@@ -248,7 +248,7 @@ ad_ip_instance util_vector_logic logic_or [list \
   C_SIZE 1]
 
 ad_connect  logic_or/Op1  tx_fir_interpolator/valid_out_0
-ad_connect  logic_or/Op2  tx_fir_interpolator/valid_out_2
+ad_connect  logic_or/Op2  tx_fir_interpolator/valid_out_1
 ad_connect  logic_or/Res  util_adrv9009_tx_upack/fifo_rd_en
 
 ad_connect tx_fir_interpolator/aclk axi_adrv9009_tx_clkgen/clk_0
